@@ -1,0 +1,845 @@
+<html>
+  <p>Dimensiones de tu panel (ancho y largo):</p>
+  <p id="panel">[dimensiones]</p>
+  <input type="range" min="1" max="100" value="10" class="slider" id="a">
+  <input type="range" min="1" max="100" value="20" class="slider" id="b">
+
+  <p>--------------------------------------------------</p>
+
+  <p id="caso1">Cargando...</p>
+  <p id="caso2">Cargando...</p>
+  <p id="caso3">Cargando...</p>
+  <canvas id='canvas' width="600" height="200" style="border: 1px solid black; border-radius: 0px;"></canvas>
+
+  <p>--------------------------------------------------</p>
+
+  <p>Parámetros caso 1 y 3: Dimensiones de tu techo (ancho y largo):</p>
+  <p id="techo1">[dimensiones]</p>
+  <input type="range" min="1" max="100" value="30" class="slider" id="x">
+  <input type="range" min="1" max="100" value="50" class="slider" id="y">
+
+  <p>--------------------------------------------------</p>
+
+  <p>Parámetros caso 2: Dimensiones de tu triángulo isóceles (base y altura):</p>
+  <p id="techo2">[dimensiones]</p>
+  <input type="range" min="1" max="100" value="50" class="slider" id="base">
+  <input type="range" min="1" max="100" value="100" class="slider" id="altura">
+
+  <p>--------------------------------------------------</p>
+
+  <p>Parámetros caso 3: El mismo techo rectangular, pero desplazado (en x e y):</p>
+  <p id="techo3">[dimensiones]</p>
+  <input type="range" min="0" max="100" value="10" class="slider" id="dx">
+  <input type="range" min="0" max="100" value="10" class="slider" id="dy">
+
+  <script type="text/javascript">
+    var lastYield = 0;
+    var respuestas_1 = {}
+    var respuestas_2 = {}
+    var respuestas_3 = {}
+    var _a;
+    var _b;
+    var _x;
+    var _y;
+    var _base;
+    var _altura;
+    var _dx;
+    var _dy;
+    var slider1 = document.getElementById("a");
+    var slider2 = document.getElementById("b");
+    var slider3 = document.getElementById("x");
+    var slider4 = document.getElementById("y");
+    var slider5 = document.getElementById("base");
+    var slider6 = document.getElementById("altura");
+    var slider7 = document.getElementById("dx");
+    var slider8 = document.getElementById("dy");
+    var canvas = document.getElementById('canvas');
+    var context = canvas.getContext("2d");
+    var panel = document.getElementById('panel');
+    var techo1 = document.getElementById('techo1');
+    var techo2 = document.getElementById('techo2');
+    var techo3 = document.getElementById('techo3');
+
+    function drawLine(x0, y0, x1, y1, color = "black", width = 1) {
+      context.beginPath();
+      context.moveTo(x0, y0);
+      context.lineTo(x1, y1);
+      context.strokeStyle = color;
+      context.lineWidth = width;
+      context.stroke();
+    }
+
+    function drawRectangle(x0, y0, x1, y1, color = "black", width = 1) {
+      drawLine(x0, y0, x1, y0, color, width);
+      drawLine(x1, y0, x1, y1, color, width);
+      drawLine(x1, y1, x0, y1, color, width);
+      drawLine(x0, y1, x0, y0, color, width);
+    }
+
+    function rectangulosSuperpuestos(x0, y0, x1, y1, a0, b0, a1, b1) {
+      return !(Math.max(x0, x1) <= Math.min(a0, a1) || Math.max(y0, y1) <= Math.min(b0, b1) || Math.min(x0, x1) >= Math.max(a0, a1) || Math.min(y0, y1) >= Math.max(b0, b1));
+    }
+
+    function puntoFuera(x, y, a0, b0, a1, b1) {
+      return x < Math.min(a0, a1) || y < Math.min(b0, b1) || x > Math.max(a0, a1) || y > Math.max(b0, b1);
+    }
+    async function max_abrect_in_xyrect(a, b, x, y) {
+
+      // Variables
+      var args_str = a + "-" + b + "-" + x + "-" + y
+      var max_paneles = 0;
+      var used_x = x;
+      var used_y = y;
+      var best_v1 = 0;
+      var best_v2 = 0;
+      var best_h1 = 0;
+      var best_h2 = 0;
+      if (args_str in respuestas_1) {
+        [max_paneles, used_x, used_y, best_v1, best_v2, best_h1, best_h2] = respuestas_1[args_str];
+      } else {
+
+        // Se prueba el techo en 0°
+        for (var [xx, yy] of [
+            [x, y],
+            [y, x]
+          ]) {
+          for (var h1 = 0; h1 <= Math.floor(xx / a); h1++) {
+            for (var v1 = 0; v1 <= Math.floor(yy / b); v1++) {
+              for (var h2 = 0; h2 <= Math.floor(xx / b); h2++) {
+                for (var v2 = 0; v2 <= Math.floor(yy / a); v2++) {
+
+                  // Anti freeze
+                  if (Date.now() - lastYield > 16) {
+                    await new Promise(r => setTimeout(r, 0));
+                    lastYield = Date.now();
+                  }
+                  P1 = h1 * a;
+                  Q1 = v1 * b;
+                  P2 = xx - h2 * b;
+                  Q2 = yy - v2 * a;
+                  if (P2 < P1 && Q2 < Q1) {
+                    continue;
+                  }
+                  paneles = h1 * v1 + h2 * v2;
+                  if (paneles > max_paneles) {
+                    max_paneles = paneles;
+                    used_x = xx;
+                    used_y = yy;
+                    best_h1 = h1;
+                    best_v1 = v1;
+                    best_h2 = h2;
+                    best_v2 = v2;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Cache
+        respuestas_1[args_str] = [max_paneles, used_x, used_y, best_v1, best_v2, best_h1, best_h2];
+      }
+
+      // Solo dibujar si fue el último pedido
+      if (_a + "-" + _b + "-" + _x + "-" + _y == a + "-" + b + "-" + x + "-" + y) {
+
+        // Limpiar canvas
+        context.clearRect(0, 0, 200, 200);
+
+        // Dibujo
+        db_x = 10
+        db_y = 10
+        db_s = 180 / Math.max(used_x, used_y); // Escala
+
+        // Paneles superior-izquierdo
+        for (var xxx = 0; xxx < best_h1; xxx++) {
+          for (var yyy = 0; yyy < best_v1; yyy++) {
+            x0 = db_x + (xxx * a) * db_s;
+            y0 = db_y + (yyy * b) * db_s;
+            x1 = db_x + (xxx * a + a) * db_s;
+            y1 = db_y + (yyy * b + b) * db_s;
+            drawRectangle(x0, y0, x1, y1, "red");
+          }
+        }
+
+        //Paneles inferior-derecho
+        for (var xxx = 0; xxx < best_h2; xxx++) {
+          for (var yyy = 0; yyy < best_v2; yyy++) {
+            x0 = db_x + (used_x - (xxx * b)) * db_s;
+            y0 = db_y + (used_y - (yyy * a)) * db_s;
+            x1 = db_x + (used_x - (xxx * b + b)) * db_s;
+            y1 = db_y + (used_y - (yyy * a + a)) * db_s;
+            drawRectangle(x0, y0, x1, y1, "blue");
+          }
+        }
+        drawRectangle(db_x, db_y, db_x + used_x * db_s, db_y + used_y * db_s, "black", 3);
+      }
+
+      // Cache
+      return max_paneles;
+    }
+    async function max_abrect_in_xhtri(a, b, x, h, recursion = false) {
+      // Variables
+      var db_x = 210
+      var db_y = 10
+      var db_s = 180 / Math.max(x, h); // Escala
+
+      // Anti freeze
+      if (Date.now() - lastYield > 16) {
+        await new Promise(r => setTimeout(r, 0));
+        lastYield = Date.now();
+      }
+
+      // Para chequeo de cache
+      var args_str = a + "-" + b + "-" + x + "-" + h + recursion
+
+      // Solo en recursiones
+      if (recursion && args_str in respuestas_2) {
+        return respuestas_2[args_str];
+      }
+
+      // Para lo siguiente se utiliza la ecuación de las rectas tangentes de los lados del triángulo
+      // y_lado_izq = pendiente * x_coord
+      // y_lado_der = -pendiente * x_coord + 2*h
+      var pendiente = h / (x / 2);
+
+      // Cuantos caben en 0° (1) en la base del triángulo
+      var x_interseccion_izq_1 = b / pendiente;
+      var x_interseccion_der_1 = (b - 2 * h) / -pendiente;
+      var ancho_base_usable_1 = x_interseccion_der_1 - x_interseccion_izq_1;
+
+      // Cuantos caben en 90° (2) en la base del triángulo
+      var x_interseccion_izq_2 = a / pendiente;
+      var x_interseccion_der_2 = (a - 2 * h) / -pendiente;
+      var ancho_base_usable_2 = x_interseccion_der_2 - x_interseccion_izq_2;
+
+      // Se comprueba si cabe un panel en alguna posición
+      if (ancho_base_usable_1 < a && ancho_base_usable_2 < b || h <= 0 || x <= 0) {
+        if (recursion) {
+
+          // Cache
+          respuestas_2[args_str] = [];
+          return [];
+        } else {
+
+          // Limpiar canvas
+          context.clearRect(200, 0, 200, 200);
+
+          // Dibujo triángulo
+          drawLine(db_x, db_y, db_x + x * db_s, db_y, "black", 3);
+          drawLine(db_x, db_y, db_x + x / 2 * db_s, db_y + h * db_s, "black", 3);
+          drawLine(db_x + x / 2 * db_s, db_y + h * db_s, db_x + x * db_s, db_y, "black", 3);
+
+          // Cache
+          respuestas_2[args_str] = 0;
+          return 0;
+        }
+      }
+
+      // Encontrar cuanto la porción usable de la base del triángulo
+      var presicion = 0.99999999999; // Necesario en ciertos casos
+      var max_paneles_base_1 = parseInt(ancho_base_usable_1 / (a * presicion));
+      var max_paneles_base_2 = parseInt(ancho_base_usable_2 / (b * presicion));
+      
+      // Bifurcación recursión 
+      var rama_1 = [
+        [a, b, max_paneles_base_1]
+      ].concat(await max_abrect_in_xhtri(a, b, ancho_base_usable_1, h - b, true));
+      var rama_2 = [
+        [b, a, max_paneles_base_2]
+      ].concat(await max_abrect_in_xhtri(a, b, ancho_base_usable_2, h - a, true));
+
+      // Encontrar la mejor rama
+      var best_rama_score = 0;
+      var best_rama = [];
+
+      // Rama 1
+      var rama_1_score = 0;
+      for (var i = 0; i < rama_1.length; i++) {
+        if (rama_1[i].length == 0) {
+          break;
+        }
+        var step_score = rama_1[i][2];
+        rama_1_score += step_score;
+      }
+
+      // Rama 2
+      var rama_2_score = 0;
+      for (var i = 0; i < rama_2.length; i++) {
+        if (rama_2[i].length == 0) {
+          break;
+        }
+        var step_score = rama_2[i][2];
+        rama_2_score += step_score;
+      }
+
+      // Se queda con la mejor
+      if (rama_1_score > rama_2_score) {
+        best_rama = rama_1;
+        best_rama_score = rama_1_score;
+      } else {
+        best_rama = rama_2;
+        best_rama_score = rama_2_score;
+      }
+
+      // Solo se ejecuta en el primer call del stack && solo dibujar si fue el último pedido
+      if (!recursion) {
+        if (_a + "-" + _b + "-" + _base + "-" + _altura == a + "-" + b + "-" + x + "-" + h) {
+
+          // Limpiar canvas
+          context.clearRect(200, 0, 200, 200);
+
+          // Dibujo triángulo
+          drawLine(db_x, db_y, db_x + x * db_s, db_y, "black", 3);
+          drawLine(db_x, db_y, db_x + x / 2 * db_s, db_y + h * db_s, "black", 3);
+          drawLine(db_x + x / 2 * db_s, db_y + h * db_s, db_x + x * db_s, db_y, "black", 3);
+
+          // Dibujar la mejor rama
+          var first_db_x = db_x;
+          for (var i = 0; i < best_rama.length; i++) {
+            var curr_a = best_rama[i][0];
+            var curr_b = best_rama[i][1];
+            var curr_max_paneles = best_rama[i][2];
+            for (var j = 0; j < curr_max_paneles; j++) {
+              var x0 = db_x + x / 2 * db_s - curr_a * curr_max_paneles / 2 * db_s;
+              var y0 = db_y;
+              var x1 = db_x + curr_a * db_s + x / 2 * db_s - curr_a * curr_max_paneles / 2 * db_s;
+              var y1 = db_y + curr_b * db_s;
+              drawRectangle(x0, y0, x1, y1, "green");
+              db_x += curr_a * db_s;
+            }
+            db_x = first_db_x;
+            db_y += curr_b * db_s;
+          }
+        }
+
+        // Retorna la cantidad de paneles de la mejor rama
+        respuestas_2[args_str] = best_rama_score;
+        return best_rama_score;
+      }
+
+      // Retorna la mejor rama y la cachea
+      respuestas_2[args_str] = best_rama;
+      return best_rama;
+    }
+    async function max_abrect_in_two_overlapped_xyrect(a, b, x, y, dx, dy) {
+      // Para chequeo de cache
+      var args_str = a + "-" + b + "-" + x + "-" + y + "-" + dx + "-" + dy;
+
+      // Variables
+      var max_paneles_encontrados = 0
+      var used_x = x;
+      var used_y = y;
+      var used_dx = dx;
+      var used_dy = dy;
+      var best_r1 = false;
+      var best_r2 = false;
+      var best_r3 = false;
+      var best_r4 = false;
+      var best_r5 = false;
+      var best_v1 = 0;
+      var best_v2 = 0;
+      var best_v3 = 0;
+      var best_v4 = 0;
+      var best_v5 = 0;
+      var best_h1 = 0;
+      var best_h2 = 0;
+      var best_h3 = 0;
+      var best_h4 = 0;
+      var best_h5 = 0;
+      var P1;
+      var Q1;
+      var P2;
+      var Q2;
+      var P3;
+      var Q3;
+      var P4;
+      var Q4;
+      var P5;
+      var Q5;
+
+      // Chequear si está cacheado
+      if (args_str in respuestas_3) {
+        [max_paneles_encontrados, used_x, used_y, used_dx, used_dy, best_r1, best_r2, best_r3, best_r4, best_r5, best_v1, best_v2, best_v3, best_v4, best_v5, best_h1, best_h2, best_h3, best_h4, best_h5] = respuestas_3[args_str];
+      } else {
+
+        // Se prueba el techo en 0° y 90°
+        loop_0: for (var [xx, yy, dxx, dyy] of [
+            [x, y, dx, dy],
+            [y, x, dy, dx]
+          ]) {
+          var si_no = [false, true];
+
+          // Loop paneles en 0° y 90° esquina superior-izquierda
+          loop_1: for(panel1_rotado of si_no) {
+            loop_h1: for (var h1 = 0; h1 <= (dyy == 0 ? xx + dxx : xx) / (panel1_rotado ? b : a); h1++) { // Filas
+              loop_v1: for (var v1 = 0; v1 <= (dxx == 0 ? yy + dyy : yy) / (panel1_rotado ? a : b); v1++) { // Columnas
+                if (panel1_rotado) {
+                  P1 = h1 * b;
+                  Q1 = v1 * a;
+                } else {
+                  P1 = h1 * a;
+                  Q1 = v1 * b;
+                }
+
+                // Chequear si el punto queda afuera
+                if (puntoFuera(P1, Q1, 0, 0, xx + dxx, yy + dyy)) {
+                  break;
+                }
+
+                // Chequear si el paneles superpone con esquina provocada por dx/dy
+                if (rectangulosSuperpuestos(0, 0, P1, Q1, 0, yy, dxx, yy + dyy)) {
+                  continue loop_v1;
+                }
+                if (rectangulosSuperpuestos(0, 0, P1, Q1, xx, 0, xx + dxx, dyy)) {
+                  continue loop_h1;
+                }
+
+                // Loop paneles en 0° y 90° esquina inferior-derecha
+                loop_2: for (panel2_rotado of si_no) {
+                  loop_h2: for (var h2 = 0; h2 <= (dyy == 0 ? xx + dxx : xx) / (panel2_rotado ? b : a); h2++) { // Filas
+                    loop_v2: for (var v2 = 0; v2 <= (dxx == 0 ? yy + dyy : yy) / (panel2_rotado ? a : b); v2++) { // Columnas
+                      if (panel2_rotado) {
+                        P2 = xx + dxx - h2 * b;
+                        Q2 = yy + dyy - v2 * a;
+                      } else {
+                        P2 = xx + dxx - h2 * a;
+                        Q2 = yy + dyy - v2 * b;
+                      }
+
+                      // Chequear si el punto queda afuera
+                      if (puntoFuera(P2, Q2, 0, 0, xx + dxx, yy + dyy)) {
+                        break;
+                      }
+
+                      // Chequear si el paneles superpone con esquina provocada por dx/dy
+                      if (rectangulosSuperpuestos(xx + dxx, yy + dyy, P2, Q2, 0, yy, dxx, yy + dyy)) {
+                        continue loop_v2;
+                      }
+                      if (rectangulosSuperpuestos(xx + dxx, yy + dyy, P2, Q2, xx, 0, xx + dxx, dyy)) {
+                        continue loop_h2;
+                      }
+
+                      // Chequear si paneles se superponen con otros paneles
+                      if (rectangulosSuperpuestos(0, 0, P1, Q1, xx + dxx, yy + dyy, P2, Q2)) {
+                        continue;
+                      }
+
+                      // Loop paneles en 0° y 90° esquina inferior-izquierda rectángulo superior izquierdo
+                      loop_3: for (panel3_rotado of si_no) {
+                        loop_h3: for (var h3 = 0; h3 <= (xx + dxx) / (panel3_rotado ? b : a); h3++) { // Filas
+                          loop_v3: for (var v3 = 0; v3 <= (yy) / (panel3_rotado ? a : b); v3++) { // Columnas
+                            if (panel3_rotado) {
+                              P3 = h3 * b;
+                              Q3 = yy - v3 * a;
+                            } else {
+                              P3 = h3 * a;
+                              Q3 = yy - v3 * b;
+                            }
+
+                            // Chequear si el punto queda afuera
+                            if (puntoFuera(P3, Q3, 0, 0, xx + dxx, yy + dyy)) {
+                              break;
+                            }
+
+                            // Chequear si el paneles superpone con esquina provocada por dx/dy
+                            if (rectangulosSuperpuestos(0, yy, P3, Q3, 0, yy, dxx, yy + dyy)) {
+                              continue loop_v3;
+                            }
+                            if (rectangulosSuperpuestos(0, yy, P3, Q3, xx, 0, xx + dxx, dyy)) {
+                              continue loop_h3;
+                            }
+
+                            // Chequear si paneles se superponen con otros paneles
+                            if (rectangulosSuperpuestos(0, 0, P1, Q1, 0, yy, P3, Q3)) {
+                              continue;
+                            }
+                            if (rectangulosSuperpuestos(xx + dxx, yy + dyy, P2, Q2, 0, yy, P3, Q3)) {
+                              continue;
+                            }
+
+                            // Loop paneles en 0° y 90° esquina inferior-izquierda rectángulo superior izquierdo
+                            loop_4: for (panel4_rotado of si_no) {
+                              loop_h4: for (var h4 = 0; h4 <= (xx + dxx) / (panel4_rotado ? b : a); h4++) { // Filas
+                                loop_v4: for (var v4 = 0; v4 <= (yy) / (panel4_rotado ? a : b); v4++) { // Columnas
+                                  if (panel4_rotado) {
+                                    P4 = xx + dxx - h4 * b;
+                                    Q4 = dyy + v4 * a;
+                                  } else {
+                                    P4 = xx + dxx - h4 * a;
+                                    Q4 = dyy + v4 * b;
+                                  }
+
+                                  // Chequear si el punto queda afuera
+                                  if (puntoFuera(P4, Q4, 0, 0, xx + dxx, yy + dyy)) {
+                                    break;
+                                  }
+
+                                  // Chequear si el paneles superpone con esquina provocada por dx/dy
+                                  if (rectangulosSuperpuestos(xx + dxx, dyy, P4, Q4, 0, yy, dxx, yy + dyy)) {
+                                    continue loop_v4;
+                                  }
+                                  if (rectangulosSuperpuestos(xx + dxx, dyy, P4, Q4, xx, 0, xx + dxx, dyy)) {
+                                    continue loop_h4;
+                                  }
+
+                                  // Chequear si paneles se superponen con otros paneles
+                                  if (rectangulosSuperpuestos(xx + dxx, yy + dyy, P2, Q2, xx + dxx, dyy, P4, Q4)) {
+                                    continue;
+                                  }
+                                  if (rectangulosSuperpuestos(0, yy, P3, Q3, xx + dxx, dyy, P4, Q4)) {
+                                    continue;
+                                  }
+                                  if (rectangulosSuperpuestos(0, 0, P1, Q1, xx + dxx, dyy, P4, Q4)) {
+                                    continue;
+                                  }
+
+                                  // Loop paneles en 0° y 90° esquina inferior-izquierda rectángulo superior izquierdo
+                                  loop_5: for (panel5_rotado of si_no) {
+                                    loop_h5: for (var h5 = 0; h5 <= (xx) / (panel5_rotado ? b : a); h5++) { // Filas
+                                      loop_v5: for (var v5 = 0; v5 <= (yy + dyy) / (panel5_rotado ? a : b); v5++) { // Columnas
+                                        if (panel5_rotado) {
+                                          P5 = xx - h5 * b;
+                                          Q5 = v5 * a;
+                                        } else {
+                                          P5 = xx - h5 * a;
+                                          Q5 = v5 * b;
+                                        }
+
+                                        // Chequear si el punto queda afuera
+                                        if (puntoFuera(P5, Q5, 0, 0, xx + dxx, yy + dyy)) {
+                                          break;
+                                        }
+
+                                        // Chequear si el paneles superpone con esquina provocada por dx/dy
+                                        if (rectangulosSuperpuestos(xx, 0, P5, Q5, 0, yy, dxx, yy + dyy)) {
+                                          continue loop_v5;
+                                        }
+                                        if (rectangulosSuperpuestos(xx, 0, P5, Q5, xx, 0, xx + dxx, dyy)) {
+                                          continue loop_h5;
+                                        }
+
+                                        // Chequear si paneles se superponen con otros paneles
+                                        if (rectangulosSuperpuestos(0, 0, P1, Q1, xx, 0, P5, Q5)) {
+                                          continue;
+                                        }
+                                        if (rectangulosSuperpuestos(xx + dxx, yy + dyy, P2, Q2, xx, 0, P5, Q5)) {
+                                          continue;
+                                        }
+                                        if (rectangulosSuperpuestos(0, yy, P3, Q3, xx, 0, P5, Q5)) {
+                                          continue;
+                                        }
+                                        if (rectangulosSuperpuestos(xx + dxx, dyy, P4, Q4, xx, 0, P5, Q5)) {
+                                          continue;
+                                        }
+
+                                        // Anti freeze
+                                        if (Date.now() - lastYield > 16) {
+                                          await new Promise(r => setTimeout(r, 0));
+                                          lastYield = Date.now();
+                                        }
+
+                                        // Comprobación de puntaje
+                                        var paneles = h1 * v1 + h2 * v2 + h3 * v3 + h4 * v4 + h5 * v5;
+                                        if (paneles <= max_paneles_encontrados) {
+                                          continue;
+                                        }
+
+                                        // Guarda la mejor combinación de parámetros
+                                        max_paneles_encontrados = paneles;
+                                        used_x = xx;
+                                        used_y = yy;
+                                        used_dx = dxx;
+                                        used_dy = dyy;
+                                        best_r1 = panel1_rotado;
+                                        best_h1 = h1;
+                                        best_v1 = v1;
+                                        best_r2 = panel2_rotado;
+                                        best_h2 = h2;
+                                        best_v2 = v2;
+                                        best_r3 = panel3_rotado;
+                                        best_h3 = h3;
+                                        best_v3 = v3;
+                                        best_r4 = panel4_rotado;
+                                        best_h4 = h4;
+                                        best_v4 = v4;
+                                        best_r5 = panel5_rotado;
+                                        best_h5 = h5;
+                                        best_v5 = v5;
+                                        
+                                        // Comprobación máximo puntaje posible
+                                        var pseudo_maximo = parseInt((x * y * 2 - (x - dx) * (y - dy)) / (a * b));
+                                        if (max_paneles_encontrados >= pseudo_maximo) {
+                                          break loop_0;
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Cachea respuesta
+        respuestas_3[args_str] = [max_paneles_encontrados, used_x, used_y, used_dx, used_dy, best_r1, best_r2, best_r3, best_r4, best_r5, best_v1, best_v2, best_v3, best_v4, best_v5, best_h1, best_h2, best_h3, best_h4, best_h5];
+      }
+
+      // Solo dibujar si fue el último pedido
+      if (_a + "-" + _b + "-" + _x + "-" + _y + "-" + _dx + "-" + _dy == a + "-" + b + "-" + x + "-" + y + "-" + dx + "-" + dy) {
+
+        // Limpiar canvas
+        context.clearRect(400, 0, 200, 200);
+
+        // Dibujo
+        db_x = 410;
+        db_y = 10;
+        db_s = 180 / Math.max(used_dx + used_x, used_dy + used_y); // Escala
+
+        // Dibujar techos superpuestos
+        var x0_t1 = db_x;
+        var y0_t1 = db_y;
+        var x1_t1 = db_x + used_x * db_s;
+        var y1_t1 = db_y + used_y * db_s;
+        var x0_t2 = db_x + used_dx * db_s;
+        var y0_t2 = db_y + used_dy * db_s;
+        var x1_t2 = db_x + (used_dx + used_x) * db_s;
+        var y1_t2 = db_y + (used_dy + used_y) * db_s;
+        drawLine(x0_t1, y0_t1, x1_t1, y0_t1, "black", 3);
+        drawLine(x1_t1, y0_t1, x1_t1, y0_t2, "black", 3);
+        drawLine(x1_t1, y0_t2, x1_t2, y0_t2, "black", 3);
+        drawLine(x1_t2, y0_t2, x1_t2, y1_t2, "black", 3);
+        drawLine(x1_t2, y1_t2, x0_t2, y1_t2, "black", 3);
+        drawLine(x0_t2, y1_t2, x0_t2, y1_t1, "black", 3);
+        drawLine(x0_t2, y1_t1, x0_t1, y1_t1, "black", 3);
+        drawLine(x0_t1, y1_t1, x0_t1, y0_t1, "black", 3);
+
+        // Paneles superior-izquierdo
+        for (var xxx = 0; xxx < best_h1; xxx++) {
+          for (var yyy = 0; yyy < best_v1; yyy++) {
+            if (best_r1) {
+              x0 = db_x + (xxx * b) * db_s;
+              y0 = db_y + (yyy * a) * db_s;
+              x1 = db_x + (xxx * b + b) * db_s;
+              y1 = db_y + (yyy * a + a) * db_s;
+            } else {
+              x0 = db_x + (xxx * a) * db_s;
+              y0 = db_y + (yyy * b) * db_s;
+              x1 = db_x + (xxx * a + a) * db_s;
+              y1 = db_y + (yyy * b + b) * db_s;
+            }
+            drawRectangle(x0, y0, x1, y1, "red");
+          }
+        }
+
+        // Paneles inferior-derecho
+        for (var xxx = 0; xxx < best_h2; xxx++) {
+          for (var yyy = 0; yyy < best_v2; yyy++) {
+            if (best_r2) {
+              x0 = db_x + (used_x + used_dx - (xxx * b)) * db_s;
+              y0 = db_y + (used_y + used_dy - (yyy * a)) * db_s;
+              x1 = db_x + (used_x + used_dx - (xxx * b + b)) * db_s;
+              y1 = db_y + (used_y + used_dy - (yyy * a + a)) * db_s;
+            } else {
+              x0 = db_x + (used_x + used_dx - (xxx * a)) * db_s;
+              y0 = db_y + (used_y + used_dy - (yyy * b)) * db_s;
+              x1 = db_x + (used_x + used_dx - (xxx * a + a)) * db_s;
+              y1 = db_y + (used_y + used_dy - (yyy * b + b)) * db_s;
+            }
+            drawRectangle(x0, y0, x1, y1, "green");
+          }
+        }
+
+        //Paneles inferior-izquierdo
+        for (var xxx = 0; xxx < best_h3; xxx++) {
+          for (var yyy = 0; yyy < best_v3; yyy++) {
+            if (best_r3) {
+              x0 = db_x + (xxx * b) * db_s;
+              y0 = db_y + (used_y - (yyy * a)) * db_s;
+              x1 = db_x + (xxx * b + b) * db_s;
+              y1 = db_y + (used_y - (yyy * a + a)) * db_s;
+            } else {
+              x0 = db_x + (xxx * a) * db_s;
+              y0 = db_y + (used_y - (yyy * b)) * db_s;
+              x1 = db_x + (xxx * a + a) * db_s;
+              y1 = db_y + (used_y - (yyy * b + b)) * db_s;
+            }
+            drawRectangle(x0, y0, x1, y1, "blue");
+          }
+        }
+
+        //Paneles superior-derecho
+        for (var xxx = 0; xxx < best_h4; xxx++) {
+          for (var yyy = 0; yyy < best_v4; yyy++) {
+            if (best_r4) {
+              x0 = db_x + (used_x + used_dx - (xxx * b)) * db_s;
+              y0 = db_y + (used_dy + (yyy * a)) * db_s;
+              x1 = db_x + (used_x + used_dx - (xxx * b + b)) * db_s;
+              y1 = db_y + (used_dy + (yyy * a + a)) * db_s;
+            } else {
+              x0 = db_x + (used_x + used_dx - (xxx * a)) * db_s;
+              y0 = db_y + (used_dy + (yyy * b)) * db_s;
+              x1 = db_x + (used_x + used_dx - (xxx * a + a)) * db_s;
+              y1 = db_y + (used_dy + (yyy * b + b)) * db_s;
+            }
+            drawRectangle(x0, y0, x1, y1, "yellow");
+          }
+        }
+        
+        //Paneles superior-superior-derecho
+        for (var xxx = 0; xxx < best_h5; xxx++) {
+          for (var yyy = 0; yyy < best_v5; yyy++) {
+            if (best_r5) {
+              x0 = db_x + (used_x - (xxx * b)) * db_s;
+              y0 = db_y + (yyy * a) * db_s;
+              x1 = db_x + (used_x - (xxx * b + b)) * db_s;
+              y1 = db_y + (yyy * a + a) * db_s;
+            } else {
+              x0 = db_x + (used_x - (xxx * a)) * db_s;
+              y0 = db_y + (yyy * b) * db_s;
+              x1 = db_x + (used_x - (xxx * a + a)) * db_s;
+              y1 = db_y + (yyy * b + b) * db_s;
+            }
+            drawRectangle(x0, y0, x1, y1, "purple");
+          }
+        }
+      }
+
+      // Retorno
+      return max_paneles_encontrados;
+    }
+
+    function refresh() {
+      // Actualizar variables
+      _a = parseFloat(document.getElementById('a').value);
+      _b = parseFloat(document.getElementById('b').value);
+      _x = parseFloat(document.getElementById('x').value);
+      _y = parseFloat(document.getElementById('y').value);
+      _base = parseFloat(document.getElementById('base').value);
+      _altura = parseFloat(document.getElementById('altura').value);
+      _dx = Math.min(_x, parseFloat(document.getElementById('dx').value));
+      _dy = Math.min(_y, parseFloat(document.getElementById('dy').value));
+    }
+
+    async function caso_1_update() {
+      // Caso 1
+      drawLine(0, 0, 200, 200, "gray");
+      drawLine(0, 200, 200, 0, "gray");
+      document.getElementById('caso1').innerText = "Cargando caso 1...";
+
+      // Actualizar texto de dimensiones
+      var id = _a + "-" + _b + "-" + _x + "-" + _y;
+      techo1.innerText = _x + " x " + _y;
+      res_1 = await max_abrect_in_xyrect(_a, _b, _x, _y);
+      if (id == _a + "-" + _b + "-" + _x + "-" + _y) {
+        document.getElementById('caso1').innerText = "Resultado caso 1: Caben " + res_1 + " paneles.";
+      }
+    }
+
+    async function caso_2_update() {
+      // Caso 2
+      drawLine(200, 0, 400, 200, "gray");
+      drawLine(200, 200, 400, 0, "gray");
+      document.getElementById('caso2').innerText = "Cargando caso 2...";
+
+      // Actualizar texto de dimensiones
+      var id = _a + "-" + _b + "-" + _base + "-" + _altura;
+      techo2.innerText = _base + " x " + _altura;
+      res_2 = await max_abrect_in_xhtri(_a, _b, _base, _altura);
+      if (id == _a + "-" + _b + "-" + _base + "-" + _altura) {
+        document.getElementById('caso2').innerText = "Resultado caso 2: Caben " + res_2 + " paneles.";
+      }
+    }
+
+    async function caso_3_update() {
+      // Caso 3
+      drawLine(400, 0, 600, 200, "gray");
+      drawLine(400, 200, 600, 0, "gray");
+      document.getElementById('caso3').innerText = "Cargando caso 3...";
+      
+      // Actualizar texto de dimensiones
+      var id = _a + "-" + _b + "-" + _x + "-" + _y + "-" + _dx + "-" + _dy;
+      techo3.innerText = _dx + " x " + _dy;
+      res_3 = await max_abrect_in_two_overlapped_xyrect(_a, _b, _x, _y, _dx, _dy);
+      if (id == _a + "-" + _b + "-" + _x + "-" + _y + "-" + _dx + "-" + _dy) {
+        document.getElementById('caso3').innerText = "Resultado caso 3: Caben " + res_3 + " paneles.";
+      }
+    }
+
+    function panel_update() {
+      // Actualizar texto de dimensiones
+      panel.innerText = _a + " x " + _b;
+    }
+    
+    slider1.oninput = function() {
+      refresh();
+      panel_update();
+      caso_1_update();
+      caso_2_update();
+      caso_3_update();
+    }
+
+    slider2.oninput = function() {
+      refresh();
+      panel_update();
+      caso_1_update();
+      caso_2_update();
+      caso_3_update();
+    }
+
+    slider3.oninput = function() {
+      refresh();
+      slider7.max = _x;
+      slider8.max = _y;
+      caso_1_update();
+      caso_3_update();
+    }
+
+    slider4.oninput = function() {
+      refresh();
+      slider7.max = _x;
+      slider8.max = _y;
+      caso_1_update();
+      caso_3_update();
+    }
+
+    slider5.oninput = function() {
+      refresh();
+      caso_2_update();
+    }
+
+    slider6.oninput = function() {
+      refresh();
+      caso_2_update();
+    }
+
+    slider7.oninput = function() {
+      refresh();
+      caso_3_update();
+    }
+
+    slider8.oninput = function() {
+      refresh();
+      caso_3_update();
+    }
+
+    window.onload = function() {
+      refresh();
+      panel_update();
+      slider7.max = _x;
+      slider8.max = _y;
+      caso_1_update();
+      caso_2_update();
+      caso_3_update();
+    }
+
+  </script>
+</html>
